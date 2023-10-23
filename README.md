@@ -16,11 +16,15 @@ Create a new empty folder 'data' in this folder. Download datasets and put them 
 - The sessions included in the experiment are shown in the selected_session_list.txt
 
 ## Training and inference
-Train within-subject models
+Train SiamEEGNet with within-subject training scheme
 ```
 python train_within_subject.py
 ```
-Train cross-subject models
+Train SiamEEGNet with cross-subject training scheme
 ```
 python cross_within_subject.py
+```
+Inference using existing models
+```
+python inference.py --model_path model/
 ```
