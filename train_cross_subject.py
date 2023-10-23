@@ -41,10 +41,13 @@ def main(args):
     # change to the path you would like to use #
     save_path = {
         'data_dir':'data/',
-        'model_dir':f'model/{args["method"]}{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_cross_subject_{args["EEG_ch"]}ch/',
+        'model_dir':f'trained_models/{args["method"]}{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_cross_subject_{args["EEG_ch"]}ch/',
         'log_file':f'log/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_cross_subject_{args["EEG_ch"]}ch.csv',
         'fig_dir':f'fig/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_cross_subject_{args["EEG_ch"]}ch/'
     }
+
+    if not os.path.exists('trained_models'):
+        os.makedirs('trained_models')
 
     if not os.path.exists(save_path['fig_dir']):
         os.makedirs(save_path['fig_dir'])
