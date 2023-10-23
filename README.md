@@ -11,14 +11,12 @@ conda activate SiamEEGNet_env
 ### Step 2.
 - Create a new empty folder 'data' in this folder. Download processed dataset and put them to the folder 'data'.
 
-### Step 3.
-- Create a new empty folder 'data'. Perform preprocessing using MatLab file data_preprocessing.m
-
 ## Dataset
 - Lane-keeping driving dataset task: https://figshare.com/articles/dataset/Multi-channel_EEG_recordings_during_a_sustained-attention_driving_task/6427334
 - Processed dataset download: https://drive.google.com/drive/folders/1_b4Fz9B7xE18z0IBJ3Dcn_mXzRcEaJ-7?usp=sharing
 
 ## Training and inference
+create a new empty folder 'model' in this folder to save trained models
 Train SiamEEGNet with within-subject training scheme
 ```
 python train_within_subject.py
@@ -29,7 +27,7 @@ python cross_within_subject.py
 ```
 Inference using existing models
 ```
-python inference.py --model_path model/
+python inference.py --model_path /model
 ```
 ## References
 ```
