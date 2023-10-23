@@ -16,19 +16,21 @@ conda activate SiamEEGNet_env
 - Processed dataset download: https://drive.google.com/drive/folders/1_b4Fz9B7xE18z0IBJ3Dcn_mXzRcEaJ-7?usp=sharing
 
 ## Training and inference
-create a new empty folder 'model' in this folder to save trained models
-Train SiamEEGNet with within-subject training scheme
+Create a new empty folder 'model' in this folder to save trained models.
+
+Train SiamEEGNet with within-subject training scheme.
 ```
 python train_within_subject.py
 ```
-Train SiamEEGNet with cross-subject training scheme
+Train SiamEEGNet with cross-subject training scheme.
 ```
 python cross_within_subject.py
 ```
-Inference using existing models
+Inference using existing models.
 ```
 python inference.py --model_path /model
 ```
+All default hyperparameters are already set in files.
 ## References
 ```
 @article{lawhern2018eegnet,
