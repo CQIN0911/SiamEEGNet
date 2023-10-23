@@ -27,7 +27,7 @@ python cross_within_subject.py
 ```
 Inference using existing models.
 ```
-python inference.py --model_path /trained_model
+python inference.py --model_path /trained_models
 ```
 All default hyperparameters are already set in files.
 
