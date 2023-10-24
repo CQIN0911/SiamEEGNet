@@ -50,6 +50,8 @@ def train_model(model, train_dl, val_dl, save_path=None, model_name=None, epochs
     # criterion = CCCLoss()
     #lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, 0.99)
     record = {'train loss': [], 'val loss':[], 'val cc':[]}
+
+    alpha = 1.0
     total_loss = 0
     mini = 1e8
     obt_grad = True if cfg['save_grad'] else False
@@ -98,7 +100,7 @@ def train_model(model, train_dl, val_dl, save_path=None, model_name=None, epochs
         record["val cc"].append(cc)
 
         print(f"val loss-> {val_loss} rmse -> {rmse} cc -> {cc}")
-        matrice = 1.0* rmse + 0.0*(1-cc)
+        matrice = alpha * rmse + (1-alpha) * (1-cc)
         if matrice < mini:
             mini = matrice
             model_save_path = f'{save_path}{model_name}_model.pt' # Use test subject to name the model
@@ -118,7 +120,7 @@ def val_model(model, test_dl, method='siamese', device='cpu'):
 
             if method == 'siamese':
                 x_test, y_test = torch.flatten(x_test, 0, 1), torch.flatten(y_test, 0, 1)
-                y_test = y_test[:,0] - y_test[:,1]
+                y_test = y_test[:,1] - y_test[:,0]
 
             x_test, y_test = x_test.to(device), y_test.to(device)
 
@@ -140,7 +142,7 @@ def test_model(model, test_dl, method='siamese', device='cpu'):
 
             if method == 'siamese':
                 x_test, y_test = torch.flatten(x_test, 0, 1), torch.flatten(y_test, 0, 1)
-                y_test = y_test[:,0] - y_test[:,1]
+                y_test = y_test[:,1] - y_test[:,0]
             
             x_test, y_test = x_test.to(device), y_test.to(device)
 
