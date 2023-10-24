@@ -90,7 +90,7 @@ def main(args):
             ts_data = np.array(data[ts_sub][sess], dtype=np.float32) # (#testing trial, #window, #channel, #timepoint)
             ts_truth = truth[ts_sub][sess].astype('float32') # (#testing trial, )
             ts_session_bound = np.tile([0, ts_data.shape[0]-1], (ts_data.shape[0], 1)) 
-            test_dl = get_dataloader(ts_data, ts_truth, ts_session_bound, 'test', **args)
+            test_dl = get_dataloader(ts_data, ts_truth, ts_session_bound, 'test', 'static', **args)
             print("Data size: {} Label size: {}".format(ts_data.shape, ts_truth.shape))
 
             ### Inference
