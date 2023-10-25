@@ -38,7 +38,7 @@ def get_dataloader_4_cross_sub(sub_list, data, truth, ts_sub_idx, args):
     tr_session_bound = np.concatenate(tr_session_bound, 0) # (#total training trial, 2)
 
     # Wrap up as dataloader
-    train_dl = get_dataloader(train_data, train_truth, tr_session_bound, 'train', 'static', **args)
+    train_dl = get_dataloader(train_data, train_truth, tr_session_bound, 'train', args["training_method"], **args)
     val_dl = get_dataloader(val_data, val_truth, val_session_bound, 'test', 'static', **args)
 
     del train_data, train_truth, val_data, val_truth, tr_session_bound, val_session_bound
