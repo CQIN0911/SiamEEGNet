@@ -29,6 +29,7 @@ def get_arg_parser():
     
     # about experiment
     parser.add_argument("--device", type=str, default = 'cuda:0')
+    parser.add_argument("--training_method", type=str, default="dynamic")
     parser.add_argument("--repeat", type=int, default = 1)
     parser.add_argument("--save_grad", type=bool, default=False)
     
@@ -147,6 +148,9 @@ def main(args):
     print(total_record)
 
     if args["save_grad"]:
+        if not os.path.exists('gradient'):
+            os.makedirs('gradient')
+            
         with open(f'gradient/all_grad_{args["backbone"]}_cross_subject.pkl', 'wb') as f:
             pickle.dump(all_grad_dict, f)
 
