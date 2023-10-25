@@ -15,7 +15,8 @@ def get_arg_parser():
     ## about model setting
     parser.add_argument("--backbone", type=str, help="choose EEG decoding model", default="EEGNet")
     parser.add_argument("--method", type=str, help="method to use (siamese or multi-window)", default='siamese')
-
+    parser.add_argument("--model_dir", type=str, help="enter the directory path to trained models")
+    
     # about EEG data
     parser.add_argument("--EEG_ch", type=int, default=30)
     parser.add_argument("--fs", type=int, default=250)
@@ -33,10 +34,10 @@ def main(args):
 
     # change to the path you would like to use
     path = {
-        'data_dir':'data/',
-        'model_dir':f'model/{args["method"]}{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_{args["scenario"]}_{args["EEG_ch"]}ch/',
-        'log_file':f'log/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_{args["scenario"]}_{args["EEG_ch"]}ch.csv',
+        'data_dir':'/home/cecnl/ljchang/CECNL/sustained-attention/selected_data/',
+        'log_file':f'log/test/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_1pair_{args["scenario"]}_{args["EEG_ch"]}ch.csv',
     }
+    path['model_dir'] = args["model_dir"]
 
     if not os.path.exists(path['model_dir']):
         raise ValueError("No such model directory. Please check model directory.")
@@ -78,6 +79,8 @@ def main(args):
     else:
         raise ValueError("Invalid method. Please choose either siamese or multi_window for the method.")
 
+    model = model.to(args["device"])
+
     record = []
     for ts_sub_idx in range(len(sub_list)):
         
@@ -90,7 +93,7 @@ def main(args):
             ts_data = np.array(data[ts_sub][sess], dtype=np.float32) # (#testing trial, #window, #channel, #timepoint)
             ts_truth = truth[ts_sub][sess].astype('float32') # (#testing trial, )
             ts_session_bound = np.tile([0, ts_data.shape[0]-1], (ts_data.shape[0], 1)) 
-            test_dl = get_dataloader(ts_data, ts_truth, ts_session_bound, 'test', 'static', **args)
+            test_dl = get_dataloader(ts_data, ts_truth, ts_session_bound, 'test', **args)
             print("Data size: {} Label size: {}".format(ts_data.shape, ts_truth.shape))
 
             ### Inference
@@ -117,9 +120,17 @@ def main(args):
                 raise ValueError("Invalid scenario. Please choose either cross_subject or within_subject for scenario.")
             
             output = [tensor.detach().cpu().item() for tensor in pred]
-            rmse,cc = evaluate(output, ts_truth, args["method"])
+            rmse, cc = evaluate(output, ts_truth, args["method"])
             record.append([rmse, cc])
             print('RMSE: {} CC: {}'.format(rmse, cc))
+
+            output_path = f'decoding_result/{args["method"]}{args["backbone"]}_{args["num_window"]}win'
+            
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)
+
+            with open(f'{output_path}/{ts_sub}-{sess+1}.npy', 'wb') as f:
+                np.save(f, output)
         
         del ts_data, ts_truth, test_dl
     
