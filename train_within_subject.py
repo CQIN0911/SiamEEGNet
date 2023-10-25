@@ -31,6 +31,7 @@ def get_arg_parser():
     
     # about experiment
     parser.add_argument("--device", type=str, default = 'cuda:0')
+    parser.add_argument("--training_method", type=str, default="dynamic")
     parser.add_argument("--repeat", type=int, default = 1)
     parser.add_argument("--save_grad", type=bool, default=False)
     
@@ -92,7 +93,7 @@ def main(args):
                 # Siamese -> need customized pair dataset
                 # Normal model -> just using nomal dataset
                 if args["method"] == 'siamese':
-                    train_dl = get_dataloader(tr_data, tr_truth, tr_session_bound, 'train', 'dynamic', **args)
+                    train_dl = get_dataloader(tr_data, tr_truth, tr_session_bound, 'train', args["training_method"], **args)
                     val_dl = get_dataloader(tr_data, tr_truth, tr_session_bound, 'test', 'static', **args) # use static baseline pairing as validation
                     model = SiamEEGNet(
                         EEG_ch=args["EEG_ch"],
@@ -102,7 +103,7 @@ def main(args):
                     )
                 else:
                     x_train, x_val, y_train, y_val = train_test_split(tr_data, tr_truth, test_size=0.3, shuffle=True) # we need to split train/val set manually in the normal models
-                    train_dl = get_dataloader(x_train, y_train, 'train', 'dynamic', **args)
+                    train_dl = get_dataloader(x_train, y_train, 'train', args["training_method"], **args)
                     val_dl = get_dataloader(x_val, y_val, 'test', 'static', **args)
                     model = Multi_window_CNN(
                         EEG_ch=args["EEG_ch"],
@@ -174,6 +175,9 @@ def main(args):
 
     # save gradient if needed
     if args["save_grad"]:
+        if not os.path.exists('gradient'):
+            os.makedirs('gradient')
+            
         with open(f'gradient/all_grad_{args["backbone"]}_within_subject.pkl', 'wb') as f:
             pickle.dump(all_grad_dict, f)
 
