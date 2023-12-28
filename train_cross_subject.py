@@ -115,6 +115,10 @@ def main(args):
 
             all_grad_dict[ts_sub] = grad_acc["all"]
 
+            # Load best model for testing
+            model_path = ts_sub + '_model.pt'
+            model.load_state_dict(torch.load(save_path['model_dir'] + model_path))
+
             # Test all sessions of testing subject #
             for sess in range(len(data[ts_sub])):
 
