@@ -13,9 +13,9 @@ from model.SiamEEGNet import SiamEEGNet, Multi_window_CNN
 
 def get_arg_parser():
     parser = argparse.ArgumentParser(description=__doc__)
-    ## model param
+    # model param
     parser.add_argument("--backbone", type=str, help="choose EEG decoding model", default="EEGNet")
-    parser.add_argument("--method", type=str, help="method to use (siamese or multi-window)", default='siamese')
+    parser.add_argument("--method", type=str, help="method to use (siamese or single)", default='siamese')
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch_size", type=int, default=20)
     parser.add_argument("--shuffle", type=bool, default=True)
@@ -41,15 +41,19 @@ def get_arg_parser():
 
 def main(args):
 
+    if args["method"] not in ['siamese', 'multi_window']:
+        raise ValueError("Invalid method ! Please use siamese or multi_window")
+
+    if args["training_method"] not in ['dynamic', 'static']:
+        raise ValueError("Invalid training method ! Please use dynamic or static")
+
     # change to the path you would like to use
     save_path = {
-        'data_dir':'data/',
-        'model_dir':f'trained_models/{args["method"]}{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_within_subject_{args["EEG_ch"]}ch/',
-        'log_file':f'log/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_within_subject_{args["EEG_ch"]}ch.csv',
-        'fig_dir':f'fig/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_within_subject_{args["EEG_ch"]}ch/'
+        'data_dir':'/home/cecnl/ljchang/CECNL/sustained-attention/selected_data/',
+        'model_dir':f'/home/cecnl/ljchang/CECNL/sustained-attention/model/test/{args["method"]}{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_within_subject_{args["EEG_ch"]}ch_baseline/',
+        'log_file':f'log/test/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_within_subject_{args["EEG_ch"]}ch_baseline.csv',
+        'fig_dir':f'fig/test/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_within_subject_{args["EEG_ch"]}ch/'
     }
-    if not os.path.exists('trained_models'):
-        os.makedirs('trained_models')
 
     if not os.path.exists(save_path['fig_dir']):
         os.makedirs(save_path['fig_dir'])
@@ -66,7 +70,7 @@ def main(args):
     print("Backbone: ", args["backbone"])
     '''
     sub_list:   store all subject IDs in the dataset
-    data:       store the Processed EEG data using dict (key: subject ID, value: a list of EEG sessions)
+    data:       store the processed EEG data using dict (key: subject ID, value: a list of EEG sessions)
     truth:      store ground truth delta DI using dict (key: subject ID, value: a list of ground truth)
     onset time: store the time stamps corresponding to each trial
     ** Use subject ID to access the data in each dict **
@@ -103,8 +107,8 @@ def main(args):
                     )
                 else:
                     x_train, x_val, y_train, y_val = train_test_split(tr_data, tr_truth, test_size=0.3, shuffle=True) # we need to split train/val set manually in the normal models
-                    train_dl = get_dataloader(x_train, y_train, 'train', args["training_method"], **args)
-                    val_dl = get_dataloader(x_val, y_val, 'test', 'static', **args)
+                    train_dl = get_dataloader(x_train, y_train, tr_session_bound, 'train', args["training_method"], **args)
+                    val_dl = get_dataloader(x_val, y_val, tr_session_bound, 'test', 'static', **args)
                     model = Multi_window_CNN(
                         EEG_ch=args["EEG_ch"],
                         fs=args["fs"],
@@ -139,7 +143,7 @@ def main(args):
                 print("Data size: {} Label size: {}".format(ts_data.shape, ts_truth.shape))
 
                 # obtain testing dataloader, and we use static baseline inference
-                test_dl = get_dataloader(ts_data, ts_truth, tr_session_bound, 'static', **args)
+                test_dl = get_dataloader(ts_data, ts_truth, tr_session_bound, 'test', 'static', **args)
 
                 # Use model fusion to get average prediction result #
                 # averaging the predictions from the models trained by other sessions# 
@@ -177,7 +181,6 @@ def main(args):
     if args["save_grad"]:
         if not os.path.exists('gradient'):
             os.makedirs('gradient')
-            
         with open(f'gradient/all_grad_{args["backbone"]}_within_subject.pkl', 'wb') as f:
             pickle.dump(all_grad_dict, f)
 
@@ -185,4 +188,3 @@ if __name__ == "__main__":
     
     args = get_arg_parser()
     main(args)
-    

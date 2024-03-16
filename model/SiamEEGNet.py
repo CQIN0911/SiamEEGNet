@@ -5,14 +5,14 @@ from torchsummary import summary
 from model.backbone import backbone_selector
 
 class Multi_window_CNN(nn.Module):    
-    def __init__(self, EEG_ch=30, fs=250, num_window=10, backbone='SCCNet'):
+    def __init__(self, EEG_ch=30, fs=250, num_window=10, backbone='EEGNet'):
         super(Multi_window_CNN, self).__init__()
 
         eegmodel = backbone_selector(backbone)      
         self.feat_extractor = eegmodel(EEG_ch=EEG_ch, fs=fs)
         # summary(self.feat_extractor, input_size=(1,30,750), device='cpu')
         # input('break')
-        self.dim_latent = self.feat_extractor.FN
+        self.dim_latent = self.feat_extractor.DL
 
         self.GAP = nn.AvgPool2d((1, num_window))
         self.regressor = nn.Linear(self.dim_latent, 1, bias = True)
@@ -39,13 +39,13 @@ class Multi_window_CNN(nn.Module):
         return intermediate_latent, output
 
 class SiamEEGNet(nn.Module):
-    def __init__(self, EEG_ch=30, fs=250, num_window=10, backbone='SCCNet'):
+    def __init__(self, EEG_ch=30, fs=250, num_window=10, backbone='EEGNet'):
         super(SiamEEGNet, self).__init__()
 
         self.num_win = num_window
         # self.dim_inter = 10
         self.backbone = Multi_window_CNN(EEG_ch=EEG_ch, fs=fs, num_window=num_window, backbone=backbone)
-        self.dim_latent = self.backbone.feat_extractor.FN
+        self.dim_latent = self.backbone.feat_extractor.DL
         self.GAP = nn.AvgPool2d((1, num_window))
 
         ## SCCNet: 20 EEGNet: 32 shallowConvNet: 40
@@ -58,12 +58,13 @@ class SiamEEGNet(nn.Module):
         
     def forward(self, x):
         intermediate_latent = {}
+        # x: [bs, #windows*2, channels, time]. In the second dimension, :#windows are the baselines; #window: are the current trials
         ### Sub-network 1
         intermediate_latent, output_di = self.backbone(x[:, self.num_win:x.size()[1], :, :])
         
         ### Sub-network 2 (for baseline)
         with torch.no_grad():
-            b_intermediate_latent, _ = self.backbone(x[:, :self.num_win, :, :])
+            b_intermediate_latent, _ = self.backbone(x[:, :self.num_win, :, :]) # the first num_win windows are the baseline
             
         ### Concatenate and Regression head
         concat_latent = torch.cat((b_intermediate_latent["smoothed"], intermediate_latent["smoothed"]), 2)

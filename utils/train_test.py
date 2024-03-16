@@ -17,19 +17,16 @@ class grad_accumulator:
     def update(self, grad):
         self.grad_acc["all"] += torch.sum(grad[:, self.num_win:, :].cpu(), 0)
 
-"""# Training setup"""
 
+"""# Training setup"""
 def train_model(model, train_dl, val_dl, save_path=None, model_name=None, epochs=50, **cfg):
     
     optimizer = getattr(optim, cfg['optimizer'])(model.parameters(), lr=cfg['lr'], weight_decay=cfg['weight_decay'])
     criterion = nn.MSELoss(reduction='mean')
-    # criterion = CCCLoss()
     #lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, 0.99)
     record = {'train loss': [], 'val loss':[], 'val cc':[]}
-
-    alpha = 1.0
     total_loss = 0
-    mini = 1e8
+    min_loss = 1e8
     obt_grad = True if cfg['save_grad'] else False
     grad = grad_accumulator(cfg['EEG_ch'], cfg['num_window'])
     
@@ -44,9 +41,11 @@ def train_model(model, train_dl, val_dl, save_path=None, model_name=None, epochs
                 optimizer.zero_grad()
                 
                 ## If we use Siamese architecture
-                ## we need to merge the multiple pairs into mini-batch
+                ## x_train will be like [batch_size, #pairs, #windows*2, channel, times]
+                ## y_train[:, 0] -> baseline DI; y_train[:,1] -> current DI
                 ## The ground truth become Delta DI (current DI - baseline DI)
                 if cfg["method"] == 'siamese':
+                    # we need to merge the multiple pairs into mini-batch
                     x_train, y_train = torch.flatten(x_train, 0, 1), torch.flatten(y_train, 0, 1)
                     y_train = y_train[:, 1] - y_train[:, 0] # index 0 in the 2nd dim serve as baseline
 
@@ -76,13 +75,16 @@ def train_model(model, train_dl, val_dl, save_path=None, model_name=None, epochs
         record["val cc"].append(cc)
 
         print(f"val loss-> {val_loss} rmse -> {rmse} cc -> {cc}")
-        matrice = alpha * rmse + (1-alpha) * (1-cc)
-        if matrice < mini:
-            mini = matrice
-            model_save_path = f'{save_path}{model_name}_model.pt' # Use test subject to name the model
+        metrics = 1.0* rmse + 0.0*(1-cc)
+        if metrics < min_loss:
+            min_loss = metrics
+            model_save_path = f'{save_path}{model_name}_best_model.pt' # Use test subject to name the model
             torch.save(model.state_dict(), model_save_path)
         
         total_loss = 0
+
+    model_save_path = f'{save_path}{model_name}_last_model.pt'
+    torch.save(model.state_dict(), model_save_path)
 
     torch.cuda.empty_cache()
     return record, grad.grad_acc

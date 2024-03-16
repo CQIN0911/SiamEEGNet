@@ -3,8 +3,9 @@ import argparse
 import numpy as np
 import csv
 import pickle
+import torch
 
-from utils.functions import get_dataset, evaluate
+from utils.functions import get_dataset, evaluate, plot_learning_curve
 from utils.getDataLoader import get_dataloader, get_dataloader_4_cross_sub
 from utils.train_test import train_model, test_model
 from model.SiamEEGNet import SiamEEGNet, Multi_window_CNN
@@ -13,7 +14,8 @@ def get_arg_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     ## about model setting
     parser.add_argument("--backbone", type=str, help="choose EEG decoding model", default="EEGNet")
-    parser.add_argument("--method", type=str, help="method to use (siamese or multi-window)", default='siamese')
+    parser.add_argument("--method", type=str, help="method to use (siamese or multi_window)", default='siamese')
+    parser.add_argument("--training_method", type=str, help="training method to use (dynamic or static)", default='dynamic')
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch_size", type=int, default=20)
     parser.add_argument("--shuffle", type=bool, default=True)
@@ -29,9 +31,8 @@ def get_arg_parser():
     
     # about experiment
     parser.add_argument("--device", type=str, default = 'cuda:0')
-    parser.add_argument("--training_method", type=str, default="dynamic")
     parser.add_argument("--repeat", type=int, default = 1)
-    parser.add_argument("--save_grad", type=bool, default=False)
+    parser.add_argument("--save_grad", type=bool, default = False)
     
     args = vars(parser.parse_args())
 
@@ -39,27 +40,21 @@ def get_arg_parser():
 
 def main(args):
 
+    if args["method"] not in ['siamese', 'multi_window']:
+        raise ValueError("Invalid method ! Please use siamese or multi_window")
+
+    if args["training_method"] not in ['dynamic', 'static']:
+        raise ValueError("Invalid training method ! Please use dynamic or static")
+
     # change to the path you would like to use #
     save_path = {
-        'data_dir':'data/',
-        'model_dir':f'trained_models/{args["method"]}{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_cross_subject_{args["EEG_ch"]}ch/',
-        'log_file':f'log/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_cross_subject_{args["EEG_ch"]}ch.csv',
-        'fig_dir':f'fig/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_cross_subject_{args["EEG_ch"]}ch/'
+        'data_dir':'/home/cecnl/ljchang/CECNL/sustained-attention/selected_data/',
+        'log_file':f'log/extended/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_cross_subject_{args["EEG_ch"]}ch.csv'
     }
-
-    if not os.path.exists('trained_models'):
-        os.makedirs('trained_models')
-
-    if not os.path.exists(save_path['fig_dir']):
-        os.makedirs(save_path['fig_dir'])
-
-    if not os.path.exists(save_path['model_dir']):
-        os.makedirs(save_path['model_dir'])
 
     with open(save_path['log_file'], 'a') as f:
         writer = csv.writer(f, delimiter='\t')
-        for row in args.items():
-            writer.writerow(row)
+        writer.writerows(args.items())
 
     # Load dataset
     print("Backbone: ", args["backbone"])
@@ -77,6 +72,12 @@ def main(args):
     all_grad_dict = {}
     for i in range(args["repeat"]):
         print("Repeatition: {}".format(i+1))
+
+        save_path['model_dir'] = f'/home/cecnl/ljchang/CECNL/SiamEEGNet_transitioning/trained_model/{args["method"]}{args["backbone"]}_{args["num_window"]}window_{args["pairing"]}pair_cross_subject_{args["EEG_ch"]}ch_r{i+1}/'
+
+        if not os.path.exists(save_path['model_dir']):
+            os.makedirs(save_path['model_dir'])
+
         record = []
         for ts_sub_idx in range(len(sub_list)):
             
@@ -104,7 +105,7 @@ def main(args):
             print('Test on: ', ts_sub)
             print('Start training...')
             model = model.to(args["device"])
-            _, grad_acc = train_model(
+            training_record, grad_acc = train_model(
                 model, 
                 train_dl, 
                 val_dl, 
@@ -114,9 +115,10 @@ def main(args):
             ) 
 
             all_grad_dict[ts_sub] = grad_acc["all"]
+            plot_learning_curve(training_record, ts_sub)
 
-            # Load best model for testing
-            model_path = ts_sub + '_model.pt'
+            # Load best model
+            model_path = ts_sub + '_best_model.pt'
             model.load_state_dict(torch.load(save_path['model_dir'] + model_path))
 
             # Test all sessions of testing subject #
@@ -132,7 +134,7 @@ def main(args):
                 _, pred = test_model(model, test_dl, args["method"], args["device"])
                 output = [tensor.detach().cpu().item() for tensor in pred]
                 
-                rmse,cc = evaluate(output, ts_truth, args["method"])
+                rmse, cc = evaluate(output, ts_truth, args["method"])
                 record.append([rmse, cc])
                 print('RMSE: {} CC: {}'.format(rmse, cc))
             
@@ -159,7 +161,6 @@ def main(args):
             pickle.dump(all_grad_dict, f)
 
 if __name__ == "__main__":
-    
+
     args = get_arg_parser()
     main(args)
-    

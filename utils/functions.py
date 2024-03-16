@@ -49,6 +49,7 @@ def get_dataset(data_dir, EEG_ch=30, num_window=10):
     return sub_list, data, truth, onset_time
 
 def create_multi_window_input(file_path, num_window=10, EEG_ch=30):
+    # set starting position based on number of windows
     start_idx = num_window - 1
 
     if EEG_ch == 8:
@@ -78,6 +79,16 @@ def create_multi_window_input(file_path, num_window=10, EEG_ch=30):
     
     return multi_win, truth, onset_time
 
+def plot_learning_curve(record, ts_sub):
+    plt.figure(figsize=(6, 5))
+    plt.plot(record['train loss'])
+    plt.plot(record['val loss'])
+    plt.plot(record['val cc'])
+    plt.legend(['train loss', 'val loss', 'val CC'])
+
+    plt.title(f"model test on {ts_sub}")
+    plt.savefig(f'training_curve_{ts_sub}.png')
+
 
 def plot_result(output, test_truth, time_point, fig_dir, cfg, idx=None):
     
@@ -104,6 +115,7 @@ def plot_result(output, test_truth, time_point, fig_dir, cfg, idx=None):
 def evaluate(pred, truth, method='siamese'):
     
     baseline_idx = 0
+    # If using SiamEEGNet, we need to remove baseline DI from all DIs
     if method == 'siamese':
         truth = truth - truth[baseline_idx]
     

@@ -3,7 +3,6 @@ import argparse
 import numpy as np
 import csv
 import torch
-import pickle
 
 from utils.functions import get_dataset, evaluate
 from utils.getDataLoader import get_dataloader
@@ -14,7 +13,7 @@ def get_arg_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     ## about model setting
     parser.add_argument("--backbone", type=str, help="choose EEG decoding model", default="EEGNet")
-    parser.add_argument("--method", type=str, help="method to use (siamese or multi-window)", default='siamese')
+    parser.add_argument("--method", type=str, help="method to use (siamese or single)", default='siamese')
     parser.add_argument("--model_dir", type=str, help="enter the directory path to trained models")
     
     # about EEG data
@@ -34,20 +33,19 @@ def main(args):
 
     # change to the path you would like to use
     path = {
-        'data_dir':'/home/cecnl/ljchang/CECNL/sustained-attention/selected_data/',
-        'log_file':f'log/test/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_1pair_{args["scenario"]}_{args["EEG_ch"]}ch.csv',
+        'data_dir':'/home/cecnl/ljchang/CECNL/SiamEEGNet_transitioning/all_data/',
+        'log_file':f'log/extended/{args["method"]}_{args["backbone"]}_{args["num_window"]}window_1pair_{args["scenario"]}_{args["EEG_ch"]}ch.csv',
     }
     path['model_dir'] = args["model_dir"]
 
     if not os.path.exists(path['model_dir']):
         raise ValueError("No such model directory. Please check model directory.")
-    else:
-        model_list = sorted(os.listdir(path['model_dir']))
+
+    model_list = sorted(os.listdir(path['model_dir']))
 
     with open(path['log_file'], 'a') as f:
         writer = csv.writer(f, delimiter='\t')
-        for row in args.items():
-            writer.writerow(row)
+        writer.writerows(args.items())
 
     # Load dataset
     '''
@@ -81,6 +79,9 @@ def main(args):
 
     model = model.to(args["device"])
 
+    with open('selected_session_list.txt', 'r') as f:
+        existing_sub = [sub[:3] for sub in f.readlines()]
+
     record = []
     for ts_sub_idx in range(len(sub_list)):
         
@@ -98,8 +99,27 @@ def main(args):
 
             ### Inference
             if args["scenario"] == 'cross_subject':
-                model_path = ts_sub + '_model.pt'
-                model.load_state_dict(torch.load(path['model_dir'] + model_path))
+
+                if ts_sub not in existing_sub:
+                    # continue
+                    best = {'sub': ' ', 'rmse':10, 'cc':-1}
+                    for exist in existing_sub:
+                        model_path = path['model_dir'] + f'{exist}_best_model.pt'
+                        model.load_state_dict(torch.load(model_path))
+                        model = model.to(args["device"])
+                        _, pred = test_model(model, test_dl, args["method"], args["device"])
+                        output = [tensor.detach().cpu().item() for tensor in pred]
+                        rmse, cc = evaluate(output, ts_truth, args["method"])
+                        if rmse < best['rmse']:
+                            best['rmse'] = rmse
+                            best['sub'] = exist
+
+                    model_path = path['model_dir'] + f'{best["sub"]}_best_model.pt'
+                    model.load_state_dict(torch.load(model_path))
+                else:
+                    model_path = ts_sub + '_best_model.pt'
+                    model.load_state_dict(torch.load(path['model_dir'] + model_path))
+
                 model = model.to(args["device"])
                 _, pred = test_model(model, test_dl, args["method"], args["device"])
 
@@ -124,26 +144,25 @@ def main(args):
             record.append([rmse, cc])
             print('RMSE: {} CC: {}'.format(rmse, cc))
 
-            output_path = f'decoding_result/{args["method"]}{args["backbone"]}_{args["num_window"]}win'
+            # save decoding results
+            # output_path = f'decoding_result/{args["method"]}{args["backbone"]}_{args["num_window"]}win'
             
-            if not os.path.exists(output_path):
-                os.makedirs(output_path)
+            # if not os.path.exists(output_path):
+            #     os.makedirs(output_path)
 
-            with open(f'{output_path}/{ts_sub}-{sess+1}.npy', 'wb') as f:
-                np.save(f, output)
+            # with open(f'{output_path}/{ts_sub}-{sess+1}.npy', 'wb') as f:
+            #     np.save(f, output)
         
         del ts_data, ts_truth, test_dl
     
     record = np.concatenate((record, np.mean(record, axis=0).reshape(1, 2)), axis=0)
     print(record)
 
-    with open(path['log_file'], 'a') as f:
+    with open(path['log_file'], 'a', newline='') as f:
         writer = csv.writer(f, delimiter='\t')
-        for row in record:
-            writer.writerow(row)
+        writer.writerows(record)
 
 if __name__ == "__main__":
     
     args = get_arg_parser()
     main(args)
-    
